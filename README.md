@@ -12,6 +12,7 @@
 
 # Methodology
  1. recomm.py 파일
+
  file_path = 'food_db2.xlsx'
  food_data = pd.read_excel(file_path)
 
