@@ -13,13 +13,13 @@
 # Methodology
  1. recomm.py 파일
 
- file_path = 'food_db2.xlsx'
- food_data = pd.read_excel(file_path)
+  file_path = 'food_db2.xlsx'
+  food_data = pd.read_excel(file_path)
 
  -> pandas 라이브러리를 활용해 엑셀 파일 데이터를 불러오는 함수입니다.
  
- if 'id' not in food_data.columns:
- food_data['id'] = food_data.index
+  if 'id' not in food_data.columns:
+  food_data['id'] = food_data.index
  
  -> 불러온 엑셀의 음식 데이터에 id라 하는 고유 식별자 추가, 없다면 데이터 인덱스를 활용해 라벨링합니다.
 
