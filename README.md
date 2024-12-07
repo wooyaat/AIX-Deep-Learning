@@ -21,10 +21,14 @@ recomm.py
 ### **0. 코드 실행에 필요한 라이브러리와 모듈 준비
 ```python
 import pandas as pd
+### -> food_db2.xlsx 파일을 처리하기 위해 사용합니다.
+
 import json
+### -> user_data.json 파일을 생성해 사용자 데이터를 구축하기 위해 사용합니다.
+
 import os
-
-
+### -> user_data.json 파일과 관련된 작업을 진행하기 위해 사용합니다.
+### -> 구체적으로 파일의 존재 여부를 파악한 뒤 있다면 내용을 읽어오고 없다면 초기화된 데이터를 사용할 수 있도록 합니다.
 
 ### **1. 데이터 로드**
 file_path = 'food_db2.xlsx'
@@ -111,15 +115,32 @@ recomm_ㅡmab2.py
 ### **0. 코드 실행에 필요한 라이브러리와 모듈 준비
 ```python
 import json
-import numpy as np
-import pandas as pd
-import tensorflow as tf
-from sklearn.neighbors import NearestNeighbors
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, BatchNormalization, Dropout, Activation
-from tensorflow.keras.optimizers import Adam
-from sklearn.preprocessing import StandardScaler
+### -> user_data.json 파일을 통해 사용자 데이터를 저장하고 읽어오기 위해 사용합니다.
 
+import numpy as np
+### -> KNN 기반 데이터 증강에서 랜덤 샘플링과 수치 연산 수행을 위해 사용합니다.
+
+import pandas as pd
+### -> json을 통해 읽어온 사용자 데이터와 food_db2.xlsx 파일을 처리하기 위해 사용합니다.
+
+import tensorflow as tf
+### -> 딥러닝 모델 구축, 학습을 위해 사용하는 라이브러리입니다.
+### -> 이 코드에서는 구체적으로 MAB 모델에서 사용자 데이터를 학습하고, 신경망 모델을 정의 및 훈련시킵니다.
+
+from sklearn.neighbors import NearestNeighbors
+### -> 음식 데이터에서 KNN을 사용해 유사한 데이터로 증강을 하기 위해 사용합니다.
+
+from tensorflow.keras.models import Model
+### -> MAB 모델에서 각 팔(Arm)에 대해 별도의 신경망 모델을 정의하기 위해 사용합니다.
+
+from tensorflow.keras.layers import Input, Dense, BatchNormalization, Dropout, Activation
+### -> Keras라는 Tensorflow의 API를 통해 딥러닝 모델을 구성하는데 필요한 층(Layer)을 제공합니다.
+
+from tensorflow.keras.optimizers import Adam
+### -> 딥러닝 모델의 학습 속도를 조정하기 위한 최적화 알고리즘입니다. 뒤이어 후술할 Cold start Problem을 해결하기 위해 사용합니다.
+
+from sklearn.preprocessing import StandardScaler
+### -> 데이텨의 정규화를 위해 사용합니다. 평균을 0, 표준편차를 1로 변환합니다.
 
 ### **1. 데이터 로드 : 사용자 데이터 준비
 def prepare_training_data(filepath):
