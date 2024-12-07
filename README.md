@@ -18,8 +18,15 @@ recomm.py
 ---
 ## **코드 주요 부분**
 
-### **1. 데이터 로드**
+### **0. 코드 실행에 필요한 라이브러리와 모듈 준비
 ```python
+import pandas as pd
+import json
+import os
+
+
+
+### **1. 데이터 로드**
 file_path = 'food_db2.xlsx'
 food_data = pd.read_excel(file_path)
 
@@ -101,8 +108,20 @@ recomm_ㅡmab2.py
 ---
 ## **코드 주요 부분**
 
-### **1. 데이터 로드 : 사용자 데이터 준비
+### **0. 코드 실행에 필요한 라이브러리와 모듈 준비
 ```python
+import json
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from sklearn.neighbors import NearestNeighbors
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, BatchNormalization, Dropout, Activation
+from tensorflow.keras.optimizers import Adam
+from sklearn.preprocessing import StandardScaler
+
+
+### **1. 데이터 로드 : 사용자 데이터 준비
 def prepare_training_data(filepath):
     with open(filepath, "r") as f:
         user_data = json.load(f)
