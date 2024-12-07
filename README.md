@@ -37,6 +37,7 @@ def get_user_input():
     activity_level = input("활동 수준을 선택하세요 (sedentary/lightly_active/moderately_active/very_active/super_active): ").strip()
     meal_count = int(input("하루 두 끼(2) 또는 세 끼(3) 중 선택하세요: "))
     return gender, age, weight, height, activity_level, meal_count
+
 ### -> 사용자가 성별, 나이, 몸무게, 활동 수준 등을 입력하면 이 데이터를 반환합니다.
 
 ### **3. 하루 권장 칼로리 계산**
@@ -54,6 +55,7 @@ def calculate_daily_calories(gender, age, weight, height, activity_level):
         "super_active": 1.9,
     }
     return bmr * activity_multiplier.get(activity_level, 1.2)
+
 ### -> 사용자의 성별, 나이, 몸무게, 키를 기준으로 **기초 대사량(BMR)**을 계산합니다.
 ### -> activity_level에 따라 활동 계수를 곱해 최종 권장 칼로리를 산출합니다.
 
@@ -64,6 +66,7 @@ def recommend_meals(food_data, meal_calories, exclude_ids, number=3):
         (~food_data['id'].isin(exclude_ids))
     ].sort_values(by='calories', ascending=False).head(number)
     return filtered_data
+
 ### -> 권장 칼로리를 초과하지 않는 음식 데이터를 필터링합니다.
 ### -> 칼로리가 높은 순으로 정렬하여 추천합니다.
 
@@ -86,7 +89,8 @@ def save_user_data(user_id, input_data, recommendations):
     with open(user_data_file, "w") as f:
         json.dump(user_data, f, indent=4)
     print("사용자 데이터가 저장되었습니다.")
-### -> 추천 결과와 사용자 데이터를 JSON 파일로 저장하여 재사용 가능하도록 합니다.
+
+### -> 추천 결과와 사용자 데이터를 JSON 파일로 저장하여 재사용 가능하도록 합니다.'''
 
 
  3. 1번 데이터에 입각한 식단 구성 및 레시피 추천
