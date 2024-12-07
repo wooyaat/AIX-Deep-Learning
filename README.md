@@ -90,8 +90,7 @@ def save_user_data(user_id, input_data, recommendations):
         json.dump(user_data, f, indent=4)
     print("사용자 데이터가 저장되었습니다.")
 
-### -> 추천 결과와 사용자 데이터를 JSON 파일로 저장하여 재사용 가능하도록 합니다.
-'''
+### -> 추천 결과와 사용자 데이터를 JSON 파일로 저장하여 재사용 가능하도록 합니다.```
 
 
  3. 1번 데이터에 입각한 식단 구성 및 레시피 추천
