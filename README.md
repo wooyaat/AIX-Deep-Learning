@@ -176,7 +176,7 @@ tf.data.experimental.enable_debug_mode()
 FOOD_DB_FILE = "food_db2.xlsx"
 USER_DATA_FILE = "user_data.json"
 
-### -> 파일 경로를 설정합니다.
+### -> 파일에서 데이터를 불러오기 위해 경로를 설정합니다.
 
 # 사용자 데이터 준비
 def prepare_training_data(filepath):
@@ -317,7 +317,9 @@ class MultiArmedBandit:
         X_scaled = self.scaler.transform(X)
         return self.models[arm].predict(X_scaled)
 
-# JSON 데이터를 기반으로 테스트 데이터 생성
+### -> Exploration(랜덤 선택)과 Exploitation(보상이 높은 팔 선택)을 통해 최적의 팔을 선택합니다. 이후 보상을 업데이트합니다.
+
+### **4. JSON 데이터를 기반으로 테스트 데이터 생성
 def generate_test_data_from_json(json_file):
     """
     user_data.json 파일에서 모든 사용자 데이터를 테스트 데이터로 반환
@@ -346,7 +348,9 @@ def generate_test_data_from_json(json_file):
     print(f"Generated test data: {len(test_data)} items")  # 디버깅 출력
     return test_data
 
-# 예측 및 상위 N개 출력
+### -> user_data.json 파일에서 각 사용자의 음식 추천 데이터를 기반으로 테스트 데이터를 생성합니다.
+
+### **5. 예측 및 상위 N개 출력
 def predict_top_n_with_names(mab, test_features, food_data, top_n=3):
     predictions = []
 
@@ -365,7 +369,9 @@ def predict_top_n_with_names(mab, test_features, food_data, top_n=3):
         features = arm_data[["calories", "protein", "fat", "carbs"]].mean().values
         print(f"{i + 1}. 음식 이름: {food_name}, 특성: {features}, 좋아할 확률: {prob * 100:.2f}%")
 
-# 실행
+### -> 4번에서 생성한 test_features를 기반으로 MAB 시스템의 팔들 중 상위 선호 확률 3개를 출력합니다.
+
+### **6. 실행
 if __name__ == "__main__":
     # 사용자 및 음식 데이터 로드
     user_data = prepare_training_data(USER_DATA_FILE)
@@ -418,6 +424,8 @@ if __name__ == "__main__":
 
         print(f"\n[{i + 1}] 사용자: {user_id}, 음식: {food_name}")
         predict_top_n_with_names(mab, test_features, food_data, top_n=3)
+
+### -> 위에서 지속적으로 정의한 함수들과 모델들을 실질적으로 활용하는 코드입니다. 
 ```
 
 # Evaluation & Analysis
@@ -434,6 +442,8 @@ if __name__ == "__main__":
 ![image](https://github.com/user-attachments/assets/70946ba6-1c75-413e-a4d4-dc5daab23307)
 
 
+데이터가 적기 때문에 모든 팔에서 비슷한 확률로 수렴하는 현상이 발생
+
 # Related Work
  - AI+X:딥러닝 9주차 플립러닝 SKT AI CURRICULUM 추천기술
    : 해당 영상에서 추천 기술에서 발생할 수 있는 Cold Start Problem과 Multi-Armed bandit system 아이디어를 얻어 적용할 수 있었습니다.
@@ -445,7 +455,7 @@ if __name__ == "__main__":
    :MAB와 관련된 내용을 참고했습니다.
 
 # Conclusion : Disscussion
- "그거 인공지능으로 하면 되는 거 아니야?" 라는 말을 정말 여러 사람들, 여러 업계에서 들을 수 있는 나날들을 보내고 있다 생각합니다. 이 아이디어도 단순하게 그 질문에서 출발했습니다. 자취생 동기들끼리 수업 후 함께 집에 가며 저녁 메뉴를 고민하던 그 순간, 인공지능으로 문제를 해결해보자는 생각에서 이 프로젝트는 시작되었습니다.
+ "그거 인공지능으로 하면 되는 거 아니야?" 라는 말을 정말 여러 사람들, 여러 업계에서 들을 수 있는 나날들을 보내고 있다 생각합니다. 이 아이디어도 단순하게 그 질문에서 출발했습니다. 자취생 동기들끼리 수업 후 함께 집에 가며 저녁 메뉴를 고민하던 그 순간, 인공지능으로 문제를 해결해보자는 다소 막연한 생각에서 이 프로젝트는 시작되었습니다.
  
  하지만 현실은 녹록지 않았고, 질문 한 마디 정도로 단순하지 않았습니다. 프로젝트를 진행하며 겪었던 큰 문제들은 다음과 같았습니다.
  1. 데이터 찾기
@@ -462,5 +472,8 @@ if __name__ == "__main__":
     problem이었습니다. 추천 알고리즘에서는 초기 진입 사용자의 데이터가 많지 않기 때문에 원활한 추천을 진행하기 어려워 데이터가 적은 상황에서도    
     추천의 정확도를 증가시킬 수 있는 방법이 필요합니다. 이 프로젝트에서는 해당 문제를 해결하기 위해 데이터의 분류코드를 활용한 KNN을 통해 데이터   
     증강을 적용했고, MAB 모델이 보다 정확하게 학습하여 추천을 진행할 수 있었습니다.
+
+3. 
+   
 
  
