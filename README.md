@@ -138,7 +138,7 @@ def save_user_data(user_id, input_data, recommendations):
 ## **코드 주요 부분**
 
 ```python
-### **0. 코드 실행에 필요한 라이브러리와 모듈 준비
+### **0. 코드 실행에 필요한 라이브러리와 모듈 준비 및 설정
 import json
 ### -> user_data.json 파일을 통해 사용자 데이터를 저장하고 읽어오기 위해 사용합니다.
 
@@ -167,8 +167,20 @@ from tensorflow.keras.optimizers import Adam
 from sklearn.preprocessing import StandardScaler
 ### -> 데이텨의 정규화를 위해 사용합니다. 평균을 0, 표준편차를 1로 변환합니다.
 
-### **1. 데이터 로드 : 사용자 데이터 준비
+tf.config.run_functions_eagerly(True)
+tf.data.experimental.enable_debug_mode()
+
+### -> TensorFlow 즉시 실행 활성화 및 디버그 모드 설정
+
+### **1. 데이터 로드
+FOOD_DB_FILE = "food_db2.xlsx"
+USER_DATA_FILE = "user_data.json"
+
+### -> 파일 경로를 설정합니다.
+
+# 사용자 데이터 준비
 def prepare_training_data(filepath):
+    """user_data.json 파일에서 데이터를 로드하고 학습 데이터를 생성"""
     with open(filepath, "r") as f:
         user_data = json.load(f)
 
@@ -181,40 +193,72 @@ def prepare_training_data(filepath):
                 "protein": float(meal.get("protein", 0)),
                 "fat": float(meal.get("fat", 0)),
                 "carbs": float(meal.get("carbs", 0)),
-                "liked": 1
+                "liked": 1  # 추천 데이터는 기본적으로 좋아한다고 가정
             })
+    print(f"Loaded user data: {len(data)} rows")  # 디버깅 출력
     return pd.DataFrame(data)
+
+### -> 사용자의 데이터에서 필요한 정보를 추출해 학습이 가능한 형태로 변환합니다.
+
+# 음식 데이터 로드
+def load_food_data(filepath):
+    """음식 데이터 로드"""
+    food_data = pd.read_excel(filepath)
+    food_data.fillna(0, inplace=True)  # 결측값 처리
+    if 'id' not in food_data.columns:
+        food_data['id'] = food_data.index  # 고유 ID 추가
+    print(f"Loaded food data: {len(food_data)} rows")  # 디버깅 출력
+    return food_data
 
 ### -> 음식 데이터를 Excel 파일에서 읽어오며, 고유 ID를 추가합니다. 필요한 열만 필터링하여 반환합니다.
 
-### **2. 데이터 증강
+### **2 데이터 증강
 def hierarchical_knn_augment(user_data, food_data, k=5, target_size=1000):
-    food_data.fillna(0, inplace=True)
-    num_missing = target_size - len(user_data)
-    if num_missing <= 0:
-        return user_data
+    """KNN을 활용한 계층적 데이터 증강"""
+    combined_data = user_data.copy()
 
+    num_missing = target_size - len(combined_data)
+    if num_missing <= 0:
+        return combined_data
+
+    # KNN 학습용 데이터 준비
     food_data["Representative_Group"] = food_data["Representative Food Code"].astype(int)
     food_data["Subcategory_Group"] = food_data["Food Subcategory Code"].astype(int)
     feature_columns = ["Representative_Group", "Subcategory_Group", "calories", "protein", "fat", "carbs"]
-
     feature_array = food_data[feature_columns].to_numpy()
+
+    # KNN 모델 학습
     knn_model = NearestNeighbors(n_neighbors=k, metric="euclidean")
     knn_model.fit(feature_array)
 
     new_data = []
     indices = np.random.choice(food_data.index, num_missing, replace=True)
+
     for idx in indices:
         query_point = feature_array[idx].reshape(1, -1)
         _, neighbors = knn_model.kneighbors(query_point)
         neighbor_indices = neighbors[0]
-        mixed_data = food_data.iloc[neighbor_indices].mean(axis=0)
-        mixed_data["liked"] = 1
+
+        # 이웃 데이터 혼합
+        neighbor_data = food_data.iloc[neighbor_indices]
+        numeric_data = neighbor_data.select_dtypes(include=[np.number])  # 숫자형 데이터만 선택
+        mixed_data = numeric_data.mean(axis=0)  # 숫자형 데이터만 평균 계산
+
+        # 노이즈 추가
+        mixed_data["calories"] += np.random.normal(0, 10)
+        mixed_data["protein"] += np.random.normal(0, 2)
+        mixed_data["fat"] += np.random.normal(0, 1)
+        mixed_data["carbs"] += np.random.normal(0, 3)
+
+        # 추가적인 데이터 열 (id, liked 등) 설정
+        mixed_data["liked"] = 1  # 증강된 데이터는 선호 데이터로 가정
         new_data.append(mixed_data)
 
-    return pd.concat([user_data, pd.DataFrame(new_data)], ignore_index=True)
+    new_data_df = pd.DataFrame(new_data)
+    combined_data = pd.concat([combined_data, new_data_df], ignore_index=True)
+    return combined_data
 
-### -> KNN을 활용해 음식 데이터를 증강합니다. 기존 사용자 데이터가 부족한 경우, 유사한 음식 데이터를 기반으로 새로운 학습 데이터를 생성합니다.
+### -> KNN을 활용해 음식 데이터를 증강합니다. 기존 사용자 데이터가 부족한 경우, 유사한 음식 데이터를 기반으로 새로운 학습 데이터를 생성하고 노이즈 추가를 통해 데이터의 다양성을 확보합니다.
 
 ### **3. Multi-Armed Bandit (MAB)
 ### **3-1. MAB 클래스 정의
@@ -225,6 +269,7 @@ class MultiArmedBandit:
         self.rewards = {arm: 0 for arm in arms}
         self.counts = {arm: 0 for arm in arms}
         self.scaler = StandardScaler()
+        self.food_data = food_data
 
     def build_model(self, input_shape):
         inputs = Input(shape=input_shape)
@@ -232,14 +277,17 @@ class MultiArmedBandit:
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
+
         x = Dense(128)(x)
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.4)(x)
+
         x = Dense(64)(x)
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.4)(x)
+
         outputs = Dense(1, activation='sigmoid')(x)
         model = Model(inputs, outputs)
         model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
@@ -259,51 +307,132 @@ class MultiArmedBandit:
         self.rewards[arm] += reward
         self.counts[arm] += 1
 
-### -> Exploration(랜덤 선택)과 Exploitation(보상이 높은 팔 선택)을 통해 최적의 팔을 선택합니다. 이후 보상을 업데이트합니다.
+    def train_arm(self, arm, X, y, epochs=10, batch_size=32):
+        X_scaled = self.scaler.fit_transform(X)
+        self.models[arm].fit(X_scaled, y, epochs=epochs, batch_size=batch_size, verbose=0)
 
-### **4. 예측 및 추천
-def predict_top_n(mab, test_features, top_n=3):
+    def predict(self, arm, X):
+        """명시적으로 numpy 입력 처리"""
+        self.scaler.fit(X)
+        X_scaled = self.scaler.transform(X)
+        return self.models[arm].predict(X_scaled)
+
+# JSON 데이터를 기반으로 테스트 데이터 생성
+def generate_test_data_from_json(json_file):
+    """
+    user_data.json 파일에서 모든 사용자 데이터를 테스트 데이터로 반환
+    """
+    with open(json_file, "r") as f:
+        user_data = json.load(f)
+
+    test_data = []
+    for user_id, user_info in user_data.items():
+        recommendations = user_info.get("recommendations", [])
+        for meal in recommendations:
+            def safe_float(value):
+                return float(value) if value not in ["nan", None, "", "-"] else 0.0
+
+            test_data.append({
+                "user_id": user_id,
+                "food_name": meal.get("name", "Unknown"),
+                "features": [
+                    safe_float(meal.get("calories")),
+                    safe_float(meal.get("protein")),
+                    safe_float(meal.get("fat")),
+                    safe_float(meal.get("carbs"))
+                ]
+            })
+
+    print(f"Generated test data: {len(test_data)} items")  # 디버깅 출력
+    return test_data
+
+# 예측 및 상위 N개 출력
+def predict_top_n_with_names(mab, test_features, food_data, top_n=3):
     predictions = []
+
     for arm in mab.arms:
-        prediction = mab.predict(arm, test_features)
+        X_scaled = mab.scaler.transform(test_features)  # 스케일링 적용
+        prediction = mab.predict(arm, X_scaled)
         predictions.append((arm, prediction[0][0]))
+
+    # 확률 기준 정렬
     predictions = sorted(predictions, key=lambda x: x[1], reverse=True)
-    print(f"상위 {top_n}개의 팔과 예측 확률:")
+
+    # 상위 N개의 팔 출력
     for i, (arm, prob) in enumerate(predictions[:top_n]):
-        print(f"{i + 1}. 팔: {arm}, 좋아할 확률: {prob * 100:.2f}%")
+        arm_data = food_data[food_data["Representative Food Code"] == arm]
+        food_name = arm_data["name"].iloc[0] if not arm_data.empty else "Unknown"
+        features = arm_data[["calories", "protein", "fat", "carbs"]].mean().values
+        print(f"{i + 1}. 음식 이름: {food_name}, 특성: {features}, 좋아할 확률: {prob * 100:.2f}%")
 
-### -> 테스트 데이터를 입력받아 각 음식 그룹에 대한 선호 확률을 계산하고, 가장 높은 확률을 가진 상위 N개의 결과를 출력합니다.
-
-### **5. 실행 흐름
+# 실행
 if __name__ == "__main__":
+    # 사용자 및 음식 데이터 로드
     user_data = prepare_training_data(USER_DATA_FILE)
     food_data = load_food_data(FOOD_DB_FILE)
-    augmented_data = hierarchical_knn_augment(user_data, food_data, target_size=1000)
 
+    # 데이터 증강
+    augmented_data = hierarchical_knn_augment(user_data, food_data, target_size=1000)
+    print(f"Augmented data size: {len(augmented_data)} rows")
+
+    # 팔 정의
     arms = food_data["Representative Food Code"].unique()
-    input_shape = (4,)
+    print(f"Defined arms: {len(arms)} unique codes")
+
+    # MAB 모델 초기화
+    input_shape = (4,)  # 칼로리, 단백질, 지방, 탄수화물
     mab = MultiArmedBandit(food_data, arms, input_shape)
 
-    for step in range(100):
-        arm = mab.choose_arm(epsilon=0.1)
+    # 학습 루프
+    for step in range(10):  # 학습 루프
+        arm = mab.choose_arm(epsilon=0.1)  # 탐험/활용 결정
         arm_data = augmented_data[augmented_data["Representative Food Code"] == arm]
         if len(arm_data) == 0:
+            print(f"No data for arm {arm}, skipping.")
             continue
+
         X = arm_data[["calories", "protein", "fat", "carbs"]].values
         y = arm_data["liked"].values
-        reward = np.random.choice([0, 1], p=[1 - y.mean(), y.mean()])
+
+        # 학습
         mab.train_arm(arm, X, y)
+
+        # 예측 결과를 기반으로 보상 설정
+        predictions = mab.predict(arm, X)
+        reward = int(np.round(np.mean(predictions)))  # 예측 평균을 반올림하여 보상 생성
         mab.update(arm, reward)
 
-    test_features = np.array([[500, 25, 10, 60]])  # 예시 데이터
-    predict_top_n(mab, test_features, top_n=3)
+        # 디버깅 정보 출력
+        loss = np.mean((predictions - y.reshape(-1, 1)) ** 2)
+        print(f"Step {step + 1}: Trained on arm {arm}, Loss: {loss:.4f}, Reward: {reward}")
 
-### -> 데이터 로드, 증강, 학습, 테스트 데이터를 통한 예측까지의 전체 흐름을 실행합니다.
+
+    # JSON 사용자 데이터를 기반으로 모든 테스트 데이터 처리
+    test_data = generate_test_data_from_json(USER_DATA_FILE)
+    print(f"Generated test data: {len(test_data)} items")
+
+    for i, data in enumerate(test_data):
+        user_id = data["user_id"]
+        food_name = data["food_name"]
+        test_features = np.array(data["features"]).reshape(1, -1)
+
+        print(f"\n[{i + 1}] 사용자: {user_id}, 음식: {food_name}")
+        predict_top_n_with_names(mab, test_features, food_data, top_n=3)
 ```
 
 # Evaluation & Analysis
-<img width="250" alt="image" src="https://github.com/user-attachments/assets/12e2c05d-1e9a-4071-a399-b4c3eb88cb9a">
-Representative Food Code
+
+![image](https://github.com/user-attachments/assets/c1b2c6b6-08c4-4301-8da5-08a5bf05ab67)
+
+
+![image](https://github.com/user-attachments/assets/fd10aec9-ba72-47c1-b814-a969938c1627)
+
+
+![image](https://github.com/user-attachments/assets/a51d069c-c5f0-46a1-a096-c2888fcd66e4)
+
+
+![image](https://github.com/user-attachments/assets/70946ba6-1c75-413e-a4d4-dc5daab23307)
+
 
 # Related Work
  - AI+X:딥러닝 9주차 플립러닝 SKT AI CURRICULUM 추천기술
