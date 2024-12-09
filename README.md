@@ -1,5 +1,7 @@
 # AIX-Deep-Learning
 # Title : 1인 가구를 위한 사용자 맞춤형 식단 추천 알고리즘
+# Video
+https://youtu.be/vLqvw2WxJ4o
 # Members 
   이호원, 전기공학과, howonlee1217@gmail.com / 박도연, 수학과, nsa09041@naver.com
 # Proposal(Option A)
